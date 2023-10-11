@@ -105,6 +105,15 @@ def pdfDateiUmbenennung(ausgabeVerzeichnis):
                     os.rename(os.path.join(ausgabeVerzeichnis, pdfDatei), neu_pdfDatei)
                 bar.update()
 
+def machTitel(s):
+    return formatierung.BOLD+s+formatierung.END
+
+def meldungErfolgreich():
+   print(formatierung.BOLD+formatierung.GREEN+'Erfolgreich!'+formatierung.END+'\n')
+
+def meldungFehlschlag():
+   print(formatierung.BOLD+formatierung.RED+'Fehler!'+formatierung.END)
+
 ausgabeVerzeichnis = 'temporary_files'  # Create a directory to save split PDFs
 
 if __name__ == '__main__':
@@ -114,19 +123,19 @@ if __name__ == '__main__':
 
     pdfDatei = sys.argv[1]
     suchText = 'Buchungsjournal'
-    print(formatierung.BOLD+'Analysiere PDF-Datei:'+formatierung.END)
+    print(machTitel('Analysiere PDF-Datei:'))
     buchungsjournalSeiten = pdfDateiSucheBuchungsjournal(pdfDatei, suchText)
     if not buchungsjournalSeiten:
-        print(formatierung.BOLD+formatierung.RED+'Fehlgeschlagen!'+formatierung.END)
+        meldungFehlschlag()
         exit(1)
     else:
-        print(formatierung.BOLD+formatierung.GREEN+'Erfolgreich!'+formatierung.END+'\n')
+        meldungErfolgreich()
 
-    print(formatierung.BOLD+'Extrahiere Buchungsjournale:'+formatierung.END)
+    print(machTitel('Extrahiere Buchungsjournale:'))
     pdfDateiAuftrennungNachSeiten(pdfDatei, buchungsjournalSeiten, ausgabeVerzeichnis)
-    print(formatierung.BOLD+formatierung.GREEN+'Erfolgreich!'+formatierung.END+'\n')
+    meldungErfolgreich()
 
-    print(formatierung.BOLD+'Umbenennung der extrahierten Buchungsjournale:'+formatierung.END)
+    print(machTitel('Umbenennung der extrahierten Buchungsjournale:'))
     pdfDateiUmbenennung(ausgabeVerzeichnis)
-    print(formatierung.BOLD+formatierung.GREEN+'Erfolgreich!'+formatierung.END)
+    meldungErfolgreich()
     exit(0)
