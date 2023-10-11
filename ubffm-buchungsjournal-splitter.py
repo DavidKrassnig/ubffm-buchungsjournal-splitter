@@ -1,10 +1,10 @@
 import fitz 		# PyMuPDF für PDF-Befehle
 import re			# Regex
 import progressbar	# Erweiterte Fortschrittsanzeige
-import sys			# Für 
-import os			# 
+import sys			# Interaktion mit Terminal
+import os			# Interaktion mit Betriebssystemen
 
-class formatierung:
+class formatierung:	# Definiert verschiedene Formatierungsmöglichkeiten
    PURPLE = '\033[95m'
    CYAN = '\033[96m'
    DARKCYAN = '\033[36m'
@@ -16,12 +16,12 @@ class formatierung:
    UNDERLINE = '\033[4m'
    END = '\033[0m'
 
-def dateiNamenRegeln(s):
-    # Remove all non-word characters (everything except numbers and letters)
+def dateiNamenRegeln(s): # Vereinheitlicht Namen der Dateiausgabe (optimiert für Interaktionen im Terminal)
+    # Entfernt alle nicht-Wörterzeichen (alles abgesehen von Buchstaben und Ziffern)
     s = re.sub(r"[^\w\s]", '', s)
-    # Replace all runs of whitespace with a single underscore
+    # Ersetzt alle Leerzeichen mit Unterstrichen
     s = re.sub(r"\s+", '_', s)
-    # Replace all characters with their lowercase counterparts
+    # Ersetzt alle Schriftzeichen mit deren Kleinschrift-Version
     s = s.lower()
     return s
 
