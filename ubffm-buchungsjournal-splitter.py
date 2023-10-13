@@ -85,11 +85,11 @@ def pdfDateiPersonaldaten(pdfDatei):
     doc.close()
     return anfangsdatum, enddatum, familienname, vorname, personalnummer, abteilung
 
-def pdfDateiAuftrennungNachSeiten(pdfDatei, seiteGesamt, ausgabeVerzeichnis):
+def pdfDateiAuftrennungNachSeiten(pdfDatei, seiteGesamt, tempVerzeichnis):
     doc = fitz.open(pdfDatei)
     
-    if not os.path.exists(ausgabeVerzeichnis):
-        os.makedirs(ausgabeVerzeichnis)
+    if not os.path.exists(tempVerzeichnis):
+        os.makedirs(tempVerzeichnis)
 
     with progressbar.ProgressBar(max_value=len(seiteGesamt)) as bar:
         for i, seiteJetzt in enumerate(seiteGesamt):
@@ -100,55 +100,114 @@ def pdfDateiAuftrennungNachSeiten(pdfDatei, seiteGesamt, ausgabeVerzeichnis):
             for page in range(seiteStart, seiteEnde):
                 neuDoc.insert_pdf(doc, from_page=page, to_page=page)
 
-            neuPdfDatei = f'{ausgabeVerzeichnis}/pages_{seiteStart + 1}_to_{seiteEnde}.pdf'
+            neuPdfDatei = f'{tempVerzeichnis}/pages_{seiteStart + 1}_to_{seiteEnde}.pdf'
             neuDoc.save(neuPdfDatei)
             neuDoc.close()
             bar.update(i)
 
     doc.close()
 
-def pdfDateiUmbenennung(ausgabeVerzeichnis):
-    with progressbar.ProgressBar(max_value=len(os.listdir(ausgabeVerzeichnis))) as bar:
-        for pdfDatei in os.listdir(ausgabeVerzeichnis):
-            if pdfDatei.endswith('.pdf'):
-                datenExtrahiert = pdfDateiPersonaldaten(os.path.join(ausgabeVerzeichnis, pdfDatei))
-                if datenExtrahiert:
-                    anfangsdatum, enddatum, familienname, vorname, personalnummer, abteilung = datenExtrahiert
-                    neu_pdfDatei = f'{ausgabeVerzeichnis}/'+dateiNamenRegeln(f'Buchungsjournal {anfangsdatum} {enddatum} {familienname} {vorname} {personalnummer}')+'.pdf'
-                    os.rename(os.path.join(ausgabeVerzeichnis, pdfDatei), neu_pdfDatei)
-                bar.update()
+def pdfDateiUmbenennung(tempVerzeichnis):
+    pdfDateien = [pdfFile for pdfFile in os.listdir(tempVerzeichnis) if pdfFile.endswith('.pdf')]
+    gesamtDateien = len(pdfDateien)
+
+    with progressbar.ProgressBar(max_value=gesamtDateien) as bar:
+        for pdfDatei in pdfDateien:
+            datenExtrahiert = pdfDateiPersonaldaten(os.path.join(tempVerzeichnis, pdfDatei))
+            if datenExtrahiert:
+                anfangsdatum, enddatum, familienname, vorname, personalnummer, abteilung = datenExtrahiert
+                abteilungKurz = ''.join(re.split("[^a-zA-Z]*", abteilung))
+                neuPdfName = dateiNamenRegeln(f'Buchungsjournal {anfangsdatum} {familienname} {vorname} {personalnummer}') + '.pdf'
+                neuPdfPfad = tempVerzeichnis + '/' + f'{anfangsdatum}' + '/' + dateiNamenRegeln(f'{abteilungKurz}') + '/'
+                if not os.path.exists(neuPdfPfad):
+                    os.makedirs(neuPdfPfad)
+                neuPdfDatei = f'{neuPdfPfad}/{neuPdfName}'
+                os.rename(os.path.join(tempVerzeichnis, pdfDatei), neuPdfDatei)
+            bar.update()
+
 
 def machTitel(s):
     return formatierung.BOLD+s+formatierung.END
 
 def meldungErfolgreich():
-   print(formatierung.BOLD+formatierung.GREEN+'Erfolgreich!'+formatierung.END+'\n')
+   print(formatierung.BOLD+formatierung.GREEN+'Erfolgreich!'+formatierung.END)
 
 def meldungFehlschlag():
    print(formatierung.BOLD+formatierung.RED+'Fehler!'+formatierung.END)
 
-ausgabeVerzeichnis = 'temporary_files'  # Create a directory to save split PDFs
+def ueberschreiben(ziel):
+    response = input(formatierung.BOLD+formatierung.YELLOW+f'{os.path.basename(ziel)} existiert bereits im Ausgabeverzeichnis. Überschreiben?'+formatierung.END+' [j/N]\n')
+    return response.lower().strip() == 'j'
+
+tempVerzeichnis = '.temp_ubffm_pdf_splitter'
+suchText = 'Buchungsjournal'
+ausgabeVerzeichnis = 'buchungsjournale'
+
+width = os.get_terminal_size().columns
+def trennlinie():
+    print('-'*width)
 
 if __name__ == '__main__':
-    if len(sys.argv) < 2:
-        print(formatierung.BOLD+formatierung.RED+'Bitte geben Sie den Dateipfad der PDF-Datei an.'+formatierung.END)
+    if len(sys.argv) == 1:
+        # Falls keine PDF-Datei spezifiziert wird, nehme alle PDF-Dateien im Skriptordner
+        pdfDateien = [file for file in os.listdir() if file.endswith('.pdf')]
+        if not pdfDateien:
+            print(formatierung.BOLD + formatierung.RED + 'Keine PDF-Dateien gefunden.' + formatierung.END)
+            exit(1)
+        else:
+            print(formatierung.BOLD + formatierung.GREEN + f'Gefundene PDF-Dateien: '+ formatierung.END+f'{", ".join(pdfDateien)}')
+    elif len(sys.argv) == 2:
+        pdfDateien = [sys.argv[1]]
+    else:
+        print(formatierung.BOLD + formatierung.RED + 'Bitte geben Sie nur den Dateipfad der PDF-Datei an.' + formatierung.END)
         exit(1)
 
-    pdfDatei = sys.argv[1]
-    suchText = 'Buchungsjournal'
-    print(machTitel('Analysiere PDF-Datei:'))
-    buchungsjournalSeiten = pdfDateiSucheBuchungsjournal(pdfDatei, suchText)
-    if not buchungsjournalSeiten:
-        meldungFehlschlag()
-        exit(1)
-    else:
+    for pdfDatei in pdfDateien:
+        trennlinie()
+        print(machTitel(f'Analysiere PDF-Datei: {pdfDatei}'))
+        buchungsjournalSeiten = pdfDateiSucheBuchungsjournal(pdfDatei, suchText)
+        if not buchungsjournalSeiten:
+            meldungFehlschlag()
+            continue
+
         meldungErfolgreich()
 
-    print(machTitel('Extrahiere Buchungsjournale:'))
-    pdfDateiAuftrennungNachSeiten(pdfDatei, buchungsjournalSeiten, ausgabeVerzeichnis)
-    meldungErfolgreich()
+        print(machTitel(f'Extrahiere Buchungsjournale: {pdfDatei}'))
+        pdfDateiAuftrennungNachSeiten(pdfDatei, buchungsjournalSeiten, tempVerzeichnis)
+        meldungErfolgreich()
 
-    print(machTitel('Umbenennung der extrahierten Buchungsjournale:'))
-    pdfDateiUmbenennung(ausgabeVerzeichnis)
+        print(machTitel(f'Umbenennung der extrahierten Buchungsjournale: {pdfDatei}'))
+        pdfDateiUmbenennung(tempVerzeichnis)
+        meldungErfolgreich()
+
+    trennlinie()
+    # Verschiebe produzierte Dateien in das Ausgabeverzeichnis
+    print(machTitel('Verschiebe Dateien zum Ausgabeverzeichnis'))
+    if not os.path.exists(ausgabeVerzeichnis):
+        os.makedirs(ausgabeVerzeichnis)
+    tempVerzeichnis_items = os.listdir(tempVerzeichnis)
+
+    with progressbar.ProgressBar(max_value=len(tempVerzeichnis_items)) as bar:
+        for item in tempVerzeichnis_items:
+            quelle = os.path.join(tempVerzeichnis, item)
+            ziel = os.path.join(ausgabeVerzeichnis, item)
+            if os.path.exists(ziel):
+                user_response = ueberschreiben(ziel)
+                if not user_response:
+                    print(f'Überspringe {item}...')
+                    continue
+                if os.path.isdir(ziel):
+                    shutil.rmtree(ziel)  # Entferne das Zielverzeichnis
+                else:
+                    os.remove(ziel)  # Entferne die Zieldatei
+            if os.path.isdir(quelle):
+                shutil.move(quelle, ziel)
+            else:
+                shutil.copy2(quelle, ziel)
+            bar.update()
+
+    # Entferne das temporäre Verzeichnis
+    if os.path.exists(tempVerzeichnis):
+        shutil.rmtree(tempVerzeichnis)
     meldungErfolgreich()
     exit(0)
