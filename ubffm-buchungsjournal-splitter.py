@@ -3,18 +3,31 @@ import re			# Regex
 import progressbar	# Erweiterte Fortschrittsanzeige
 import sys			# Interaktion mit Terminal
 import os			# Interaktion mit Betriebssystemen
+import shutil       # Einfachere Dateiverschiebung
 
 class formatierung:	# Definiert verschiedene Formatierungsmöglichkeiten
-   PURPLE = '\033[95m'
-   CYAN = '\033[96m'
-   DARKCYAN = '\033[36m'
-   BLUE = '\033[94m'
-   GREEN = '\033[92m'
-   YELLOW = '\033[93m'
-   RED = '\033[91m'
-   BOLD = '\033[1m'
-   UNDERLINE = '\033[4m'
-   END = '\033[0m'
+    if os.name == 'nt':
+        PURPLE = ''
+        CYAN = ''
+        DARKCYAN = ''
+        BLUE = ''
+        GREEN = ''
+        YELLOW = ''
+        RED = ''
+        BOLD = ''
+        UNDERLINE = ''
+        END = ''
+    else:
+        PURPLE = '\033[95m'
+        CYAN = '\033[96m'
+        DARKCYAN = '\033[36m'
+        BLUE = '\033[94m'
+        GREEN = '\033[92m'
+        YELLOW = '\033[93m'
+        RED = '\033[91m'
+        BOLD = '\033[1m'
+        UNDERLINE = '\033[4m'
+        END = '\033[0m'
 
 def dateiNamenRegeln(s): # Vereinheitlicht Namen der Dateiausgabe (optimiert für Interaktionen im Terminal)
     # Entfernt alle nicht-Wörterzeichen (alles abgesehen von Buchstaben und Ziffern)
@@ -53,8 +66,8 @@ def pdfDateiPersonaldaten(pdfDatei):
         personaldaten = re.search(r'Name: (.*), (.*) PersonalNr.: (.*) Abteilung: (.*)', text, re.IGNORECASE)
 
         if datum:
-            anfangsdatum = str(datum.group(3)+datum.group(2)+datum.group(1))
-            enddatum = str(datum.group(6)+datum.group(5)+datum.group(4))
+            anfangsdatum = str(datum.group(3)+'-'+datum.group(2))
+            enddatum = str(datum.group(6)+'-'+datum.group(5))
         else:
             print(formatierung.BOLD+formatierung.RED+f'ABBRUCH! Kein Datum für {pdfDatei} gefunden.'+formatierung.END)
             exit(1)
