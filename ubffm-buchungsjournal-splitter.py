@@ -1,33 +1,25 @@
 import fitz 		# PyMuPDF für PDF-Befehle
 import re			# Regex
-import progressbar	# Erweiterte Fortschrittsanzeige
+import tqdm     	# Erweiterte Fortschrittsanzeige
 import sys			# Interaktion mit Terminal
 import os			# Interaktion mit Betriebssystemen
 import shutil       # Einfachere Dateiverschiebung
 
+if os.name == 'nt':
+    from colorama import just_fix_windows_console
+    just_fix_windows_console()
+
 class formatierung:	# Definiert verschiedene Formatierungsmöglichkeiten
-    if os.name == 'nt':
-        PURPLE = ''
-        CYAN = ''
-        DARKCYAN = ''
-        BLUE = ''
-        GREEN = ''
-        YELLOW = ''
-        RED = ''
-        BOLD = ''
-        UNDERLINE = ''
-        END = ''
-    else:
-        PURPLE = '\033[95m'
-        CYAN = '\033[96m'
-        DARKCYAN = '\033[36m'
-        BLUE = '\033[94m'
-        GREEN = '\033[92m'
-        YELLOW = '\033[93m'
-        RED = '\033[91m'
-        BOLD = '\033[1m'
-        UNDERLINE = '\033[4m'
-        END = '\033[0m'
+    PURPLE = '\033[95m'
+    CYAN = '\033[96m'
+    DARKCYAN = '\033[36m'
+    BLUE = '\033[94m'
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    RED = '\033[91m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+    END = '\033[0m'
 
 def dateiNamenRegeln(s): # Vereinheitlicht Namen der Dateiausgabe (optimiert für Interaktionen im Terminal)
     # Entfernt alle nicht-Wörterzeichen (alles abgesehen von Buchstaben und Ziffern)
@@ -42,13 +34,13 @@ def pdfDateiSucheBuchungsjournal(pdfDatei, suchText):
     doc = fitz.open(pdfDatei)
     buchungsjournalSeiten = []
 
-    with progressbar.ProgressBar(max_value=doc.page_count) as bar:
+    with tqdm.tqdm(total=doc.page_count) as bar:
         for seiteJetzt in range(doc.page_count):
             page = doc.load_page(seiteJetzt)
             text = page.get_text()
             if suchText in text:
                 buchungsjournalSeiten.append(seiteJetzt)
-            bar.update(seiteJetzt)
+            bar.update(1)
 
     doc.close()
     return buchungsjournalSeiten
@@ -91,7 +83,7 @@ def pdfDateiAuftrennungNachSeiten(pdfDatei, seiteGesamt, tempVerzeichnis):
     if not os.path.exists(tempVerzeichnis):
         os.makedirs(tempVerzeichnis)
 
-    with progressbar.ProgressBar(max_value=len(seiteGesamt)) as bar:
+    with tqdm.tqdm(total=len(seiteGesamt)) as bar:
         for i, seiteJetzt in enumerate(seiteGesamt):
             seiteStart = seiteJetzt
             seiteEnde = seiteGesamt[i + 1] if i + 1 < len(seiteGesamt) else doc.page_count
@@ -103,7 +95,7 @@ def pdfDateiAuftrennungNachSeiten(pdfDatei, seiteGesamt, tempVerzeichnis):
             neuPdfDatei = f'{tempVerzeichnis}/pages_{seiteStart + 1}_to_{seiteEnde}.pdf'
             neuDoc.save(neuPdfDatei)
             neuDoc.close()
-            bar.update(i)
+            bar.update(1)
 
     doc.close()
 
@@ -111,7 +103,7 @@ def pdfDateiUmbenennung(tempVerzeichnis):
     pdfDateien = [pdfFile for pdfFile in os.listdir(tempVerzeichnis) if pdfFile.endswith('.pdf')]
     gesamtDateien = len(pdfDateien)
 
-    with progressbar.ProgressBar(max_value=gesamtDateien) as bar:
+    with tqdm.tqdm(total=gesamtDateien) as bar:
         for pdfDatei in pdfDateien:
             datenExtrahiert = pdfDateiPersonaldaten(os.path.join(tempVerzeichnis, pdfDatei))
             if datenExtrahiert:
@@ -123,7 +115,7 @@ def pdfDateiUmbenennung(tempVerzeichnis):
                     os.makedirs(neuPdfPfad)
                 neuPdfDatei = f'{neuPdfPfad}/{neuPdfName}'
                 os.rename(os.path.join(tempVerzeichnis, pdfDatei), neuPdfDatei)
-            bar.update()
+            bar.update(1)
 
 
 def machTitel(s):
@@ -135,7 +127,7 @@ def meldungErfolgreich():
 def meldungFehlschlag():
    print(formatierung.BOLD+formatierung.RED+'Fehler!'+formatierung.END)
 
-def ueberschreiben(ziel):
+def ueberschreibenFrage(ziel):
     response = input(formatierung.BOLD+formatierung.YELLOW+f'{os.path.basename(ziel)} existiert bereits im Ausgabeverzeichnis. Überschreiben?'+formatierung.END+' [j/N]\n')
     return response.lower().strip() == 'j'
 
@@ -143,9 +135,9 @@ tempVerzeichnis = '.temp_ubffm_pdf_splitter'
 suchText = 'Buchungsjournal'
 ausgabeVerzeichnis = 'buchungsjournale'
 
-width = os.get_terminal_size().columns
 def trennlinie():
-    print('-'*width)
+    w, h = shutil.get_terminal_size()
+    print("—" * w)
 
 if __name__ == '__main__':
     if len(sys.argv) == 1:
@@ -187,14 +179,15 @@ if __name__ == '__main__':
         os.makedirs(ausgabeVerzeichnis)
     tempVerzeichnis_items = os.listdir(tempVerzeichnis)
 
-    with progressbar.ProgressBar(max_value=len(tempVerzeichnis_items)) as bar:
+    with tqdm.tqdm(total=len(tempVerzeichnis_items)) as bar:
         for item in tempVerzeichnis_items:
             quelle = os.path.join(tempVerzeichnis, item)
             ziel = os.path.join(ausgabeVerzeichnis, item)
             if os.path.exists(ziel):
-                user_response = ueberschreiben(ziel)
+                user_response = ueberschreibenFrage(ziel)
                 if not user_response:
                     print(f'Überspringe {item}...')
+                    bar.update(1)
                     continue
                 if os.path.isdir(ziel):
                     shutil.rmtree(ziel)  # Entferne das Zielverzeichnis
@@ -204,10 +197,12 @@ if __name__ == '__main__':
                 shutil.move(quelle, ziel)
             else:
                 shutil.copy2(quelle, ziel)
-            bar.update()
+            bar.update(1)
 
     # Entferne das temporäre Verzeichnis
     if os.path.exists(tempVerzeichnis):
         shutil.rmtree(tempVerzeichnis)
     meldungErfolgreich()
+    trennlinie()
+    input('Drücken Sie die Eingabetaste, um das Skript zu beenden')
     exit(0)
